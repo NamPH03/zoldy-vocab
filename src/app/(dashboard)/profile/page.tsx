@@ -1,0 +1,513 @@
+"use client";
+
+// src/app/(dashboard)/profile/page.tsx
+// Trang thông tin cá nhân của người dùng hỗ trợ upload ảnh đại diện (avatar)
+
+import { useEffect, useState, useRef } from "react";
+import { db } from "@/lib/firebase";
+import { onAuthChange, changePassword, hasPasswordProvider } from "@/lib/auth";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { useRouter } from "next/navigation";
+import Navbar from "@/components/ui/Navbar";
+import { getProgress, ProgressData } from "@/lib/progress";
+import { User, Settings, Shield, Award, Edit3, Save, Camera, ChevronDown, ChevronUp, Lock, LogOut, Bell } from "lucide-react";
+import type { User as FirebaseUser } from "firebase/auth";
+
+export default function ProfilePage() {
+  const [userEmail, setUserEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [photoURL, setPhotoURL] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [progress, setProgress] = useState<ProgressData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
+
+  // Đổi mật khẩu
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const unsubscribe = onAuthChange(async (user) => {
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+      setCurrentUser(user);
+      setUserEmail(user.email || "");
+
+      // Lấy thông tin từ Firestore users/{uid}
+      const userDocRef = doc(db, "users", user.uid);
+      const [userSnap, prog] = await Promise.all([
+        getDoc(userDocRef),
+        getProgress(user.uid)
+      ]);
+
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        setDisplayName(userData.displayName || user.email?.split("@")[0] || "");
+        setPhotoURL(userData.photoURL || "");
+      } else {
+        setDisplayName(user.email?.split("@")[0] || "");
+      }
+
+      setProgress(prog);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, [router]);
+
+  const handleSaveName = async () => {
+    if (!currentUser || !displayName.trim()) return;
+
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        displayName: displayName.trim()
+      });
+      setIsEditing(false);
+    } catch (e) {
+      console.error("Lỗi cập nhật tên:", e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Nén ảnh về kích thước và chất lượng phù hợp rồi trả về chuỗi base64
+  const compressImageToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        // Tối đa 256x256 px
+        const MAX = 256;
+        const scale = Math.min(MAX / img.width, MAX / img.height, 1);
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { reject(new Error("Canvas không được hỗ trợ")); return; }
+        ctx.drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        // Chất lượng 0.82 ~ 50-80 KB cho ảnh 256px
+        resolve(canvas.toDataURL("image/jpeg", 0.82));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Không đọc được file ảnh")); };
+      img.src = url;
+    });
+  };
+
+  // Xử lý upload ảnh đại diện — nén bằng canvas rồi lưu base64 vào Firestore
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentUser) return;
+
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Vui lòng chọn file hình ảnh hợp lệ!");
+      return;
+    }
+
+    // Giới hạn file gốc tối đa 10MB (sau nén sẽ rất nhỏ)
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError("Ảnh gốc phải nhỏ hơn 10MB!");
+      return;
+    }
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setUploadError("");
+    setUploading(true);
+
+    try {
+      // 1. Nén ảnh xuống 256x256 dùng Canvas API
+      const base64 = await compressImageToBase64(file);
+
+      // 2. Lưu base64 vào Firestore (không cần Firebase Storage)
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        photoURL: base64
+      });
+
+      // 3. Cập nhật UI ngay lập tức
+      setPhotoURL(base64);
+    } catch (err: unknown) {
+      console.error("Ảnh upload lỗi:", err);
+      const msg = err instanceof Error ? err.message : "Lỗi không xác định";
+      setUploadError("Upload thất bại: " + msg);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError("");
+    setPasswordSuccess(false);
+    setChangingPassword(true);
+
+    const result = await changePassword(currentPassword, newPassword, confirmNewPassword);
+    setChangingPassword(false);
+
+    if (result.success) {
+      setPasswordSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+      setTimeout(() => {
+        setShowPasswordForm(false);
+        setPasswordSuccess(false);
+      }, 3000);
+    } else {
+      setPasswordError(result.error);
+    }
+  };
+
+  const canChangePassword = currentUser ? hasPasswordProvider(currentUser) : false;
+
+  if (loading) return (
+    <div className="min-h-[100dvh] bg-page pb-20 md:pb-6">
+      <div className="max-w-xl mx-auto px-4 py-6 space-y-6">
+        {/* Skeleton Navbar */}
+        <div className="h-14 w-full rounded-2xl animate-pulse bg-[var(--surface-2)]" />
+        
+        {/* Skeleton Header */}
+        <div className="space-y-2 animate-pulse">
+          <div className="h-7 w-1/3 rounded-xl bg-[var(--surface-3)]" />
+          <div className="h-4 w-1/2 rounded-xl bg-[var(--surface-3)]" />
+        </div>
+
+        {/* Skeleton User Card */}
+        <div className="card p-6 rounded-3xl animate-pulse flex flex-col items-center gap-4" style={{ background: "var(--surface-2)" }}>
+          <div className="w-20 h-20 rounded-full bg-[var(--surface-3)]" />
+          <div className="h-6 w-1/3 rounded-xl bg-[var(--surface-3)]" />
+          <div className="h-4 w-1/2 rounded-xl bg-[var(--surface-3)]" />
+        </div>
+
+        {/* Skeleton Stat Grid */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="h-24 rounded-3xl bg-[var(--surface-2)] animate-pulse" />
+          <div className="h-24 rounded-3xl bg-[var(--surface-2)] animate-pulse" />
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-[100dvh] bg-page pb-20 md:pb-6">
+      <Navbar userEmail={userEmail} />
+
+      <div className="max-w-xl mx-auto px-4 py-6">
+        
+        {/* Tiêu đề trang */}
+        <div className="mb-6 animate-fade-up">
+          <h1 className="text-2xl font-bold" style={{ color: "var(--text)" }}>
+            Thông tin cá nhân
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>
+            Quản lý tài khoản Nihongo Master của bạn
+          </p>
+        </div>
+
+        {/* Thẻ User Card */}
+        <div className="card p-6 mb-6 animate-fade-up flex flex-col items-center text-center relative overflow-hidden"
+             style={{ 
+               background: "linear-gradient(135deg, var(--surface), rgba(34, 197, 94, 0.02))"
+             }}>
+          
+          {/* File Input Ẩn */}
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileChange} 
+            className="hidden" 
+            accept="image/*"
+          />
+
+          {/* Avatar dạng hình tròn + Hover để đổi ảnh */}
+          <div 
+            onClick={handleAvatarClick}
+            className="group relative w-20 h-20 rounded-full bg-[var(--primary)]/10 border border-[var(--primary)]/20 flex items-center justify-center mb-4 cursor-pointer overflow-hidden transition-all active:scale-95"
+          >
+            {photoURL ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={photoURL} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <User size={36} className="text-[var(--primary)]" />
+            )}
+            
+            {/* Overlay hover đổi ảnh */}
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <Camera size={18} className="text-white" />
+            </div>
+            
+            {/* Hiệu ứng loading khi đang upload */}
+            {uploading && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                <div className="w-5 h-5 rounded-full border-2 border-t-transparent border-[var(--primary)] animate-spin" />
+              </div>
+            )}
+          </div>
+
+          {/* Lỗi upload ảnh */}
+          {uploadError && (
+            <p className="text-xs px-3 py-1.5 rounded-lg mb-2 text-center"
+              style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+              {uploadError}
+            </p>
+          )}
+
+          {/* Thông báo upload thành công */}
+          {!uploading && !uploadError && photoURL && (
+            <p className="text-xs text-[var(--primary)] mb-2">✓ Ảnh đại diện đã cập nhật</p>
+          )}
+
+          <span className="text-[10px] uppercase font-bold tracking-widest text-[var(--text-faint)] px-2.5 py-0.5 rounded-full bg-neutral-500/10 mb-2">
+            Học viên
+          </span>
+
+          {/* Tên hiển thị */}
+          <div className="w-full max-w-xs flex flex-col items-center gap-2 mb-2">
+            {isEditing ? (
+              <div className="flex w-full gap-2 mt-1">
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="input text-center flex-1 text-sm font-semibold py-1.5"
+                  placeholder="Nhập tên của bạn..."
+                  autoFocus
+                />
+                <button 
+                  onClick={handleSaveName} 
+                  disabled={saving}
+                  className="btn btn-primary px-3 rounded-xl flex items-center justify-center"
+                >
+                  <Save size={16} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold" style={{ color: "var(--text)" }}>
+                  {displayName}
+                </h2>
+                <button 
+                  onClick={() => setIsEditing(true)}
+                  className="text-neutral-500 hover:text-[var(--primary)] transition-colors p-1"
+                  title="Đổi tên"
+                >
+                  <Edit3 size={14} />
+                </button>
+              </div>
+            )}
+            <p className="text-xs text-[var(--text-muted)]">{userEmail}</p>
+          </div>
+        </div>
+
+        {/* Menu cài đặt & tuỳ chọn */}
+        <div className="card p-4 space-y-2 animate-fade-up delay-75">
+          
+          {/* Nút cài đặt (Chưa xử lý tính năng) */}
+          <button 
+            className="w-full flex items-center justify-between p-3.5 rounded-xl transition-all duration-200 bg-neutral-500/5 hover:bg-neutral-500/10 active:scale-98"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-orange-500/10 text-orange-500 flex items-center justify-center">
+                <Settings size={18} />
+              </div>
+              <span className="text-sm font-bold" style={{ color: "var(--text)" }}>
+                Cài đặt ứng dụng
+              </span>
+            </div>
+            <span className="text-xs text-[var(--text-muted)] font-medium">Chưa khả dụng</span>
+          </button>
+
+          {/* Bảo mật & Đổi mật khẩu */}
+          <button
+            onClick={() => setShowPasswordForm(!showPasswordForm)}
+            className="w-full flex items-center justify-between p-3.5 rounded-xl transition-all duration-200 bg-neutral-500/5 hover:bg-neutral-500/10 active:scale-98"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center">
+                <Shield size={18} />
+              </div>
+              <span className="text-sm font-bold" style={{ color: "var(--text)" }}>
+                Bảo mật & Mật khẩu
+              </span>
+            </div>
+            {canChangePassword ? (
+              showPasswordForm ? <ChevronUp size={16} className="text-[var(--text-muted)]" /> : <ChevronDown size={16} className="text-[var(--text-muted)]" />
+            ) : (
+              <span className="text-xs text-[var(--text-muted)] font-medium">Google</span>
+            )}
+          </button>
+
+          {showPasswordForm && canChangePassword && (
+            <form onSubmit={handleChangePassword} className="p-4 rounded-xl space-y-3"
+              style={{ background: "var(--surface-2)", border: "1px solid var(--border-color)" }}>
+              <div className="flex items-center gap-2 mb-1">
+                <Lock size={14} style={{ color: "var(--primary)" }} />
+                <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                  Đổi mật khẩu
+                </span>
+              </div>
+
+              {passwordError && (
+                <p className="text-xs px-3 py-2 rounded-lg"
+                  style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444" }}>
+                  {passwordError}
+                </p>
+              )}
+
+              {passwordSuccess && (
+                <p className="text-xs px-3 py-2 rounded-lg"
+                  style={{ background: "rgba(34,197,94,0.08)", color: "#22c55e" }}>
+                  Đổi mật khẩu thành công!
+                </p>
+              )}
+
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Mật khẩu hiện tại"
+                required
+                className="input text-sm"
+              />
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Mật khẩu mới (≥ 6 ký tự)"
+                required
+                className="input text-sm"
+              />
+              <input
+                type="password"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                placeholder="Xác nhận mật khẩu mới"
+                required
+                className="input text-sm"
+              />
+              <button
+                type="submit"
+                disabled={changingPassword}
+                className="btn btn-primary w-full py-2.5 rounded-xl text-sm"
+              >
+                {changingPassword ? "Đang cập nhật..." : "Cập nhật mật khẩu"}
+              </button>
+            </form>
+          )}
+
+          {showPasswordForm && !canChangePassword && (
+            <div className="p-4 rounded-xl text-sm text-center"
+              style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>
+              Bạn đăng nhập bằng Google — không cần đổi mật khẩu tại đây.
+            </div>
+          )}          {/* Thành tích & XP */}
+          <div className="w-full flex items-center justify-between p-3.5 rounded-xl bg-neutral-500/5">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-yellow-500/10 text-yellow-500 flex items-center justify-center">
+                <Award size={18} />
+              </div>
+              <span className="text-sm font-bold" style={{ color: "var(--text)" }}>
+                Thành tích & XP
+              </span>
+            </div>
+            <span className="text-xs font-bold text-[var(--primary)]">
+              Streak: {progress?.streak || 0} ngày
+            </span>
+          </div>
+
+          {/* Bật thông báo thủ công bằng click gesture (cần thiết cho iOS/Safari) */}
+          <div className="w-full flex flex-col gap-2 p-3.5 rounded-xl bg-neutral-500/5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+                  <Bell size={18} />
+                </div>
+                <span className="text-sm font-bold" style={{ color: "var(--text)" }}>
+                  Thông báo nhắc học
+                </span>
+              </div>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                style={{
+                  background: typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted" ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
+                  color: typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted" ? "#22c55e" : "#ef4444"
+                }}
+              >
+                {typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted" ? "Đã bật" : "Chưa bật"}
+              </span>
+            </div>
+            
+            <p className="text-xs text-[var(--text-muted)] mt-1">
+              Bắt buộc phải bật để nhận nhắc nhở ôn từ vựng hàng ngày (iOS cần tải App PWA trước).
+            </p>
+
+            <button
+              onClick={async () => {
+                if (!currentUser) return;
+                if (typeof window !== "undefined" && !("Notification" in window)) {
+                  alert("Trình duyệt di động này chưa hỗ trợ Thông báo trực tiếp (iOS cần cài đặt ứng dụng dạng PWA trước).");
+                  return;
+                }
+                try {
+                  const { registerPushNotifications } = await import("@/lib/fcm");
+                  const success = await registerPushNotifications(currentUser.uid);
+                  if (success) {
+                    alert("🎉 Đã bật thông báo thành công và đăng ký thiết bị!");
+                    window.location.reload();
+                  } else {
+                    alert("⚠️ Không thể đăng ký. Hãy chắc chắn bạn đã đồng ý cấp quyền thông báo trên trình duyệt.");
+                  }
+                } catch (e) {
+                  console.error(e);
+                  alert("Đã xảy ra lỗi khi đăng ký thông báo.");
+                }
+              }}
+              className="btn btn-primary w-full py-2.5 rounded-xl text-xs font-bold mt-2"
+            >
+              🔔 Đăng ký thiết bị nhận thông báo ngay
+            </button>
+          </div>
+
+          {/* Đăng xuất tài khoản */}
+          <button
+            onClick={async () => {
+              const { logout } = await import("@/lib/auth");
+              await logout();
+              router.push("/");
+            }}
+            className="w-full flex items-center justify-between p-3.5 rounded-xl transition-all duration-200 bg-red-500/5 hover:bg-red-500/10 active:scale-98 border border-red-500/10"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center">
+                <LogOut size={18} />
+              </div>
+              <span className="text-sm font-bold text-red-500">
+                Đăng xuất tài khoản
+              </span>
+            </div>
+          </button>
+
+        </div>
+
+      </div>
+    </div>
+  );
+}

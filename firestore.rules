@@ -1,0 +1,61 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===== VOCABULARY =====
+    // Cho phép đọc công khai hoặc sau khi đăng nhập để tra từ điển & học
+    // Chỉ Admin SDK hoặc user đăng nhập mới được ghi
+    match /vocabulary/{wordId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // ===== META (vocabVersion cache-invalidation doc) =====
+    // Client đọc meta/vocabVersion để biết cache trong localStorage còn mới hay đã cũ
+    match /meta/{docId} {
+      allow read: if true;
+      allow write: if false; // Chỉ Admin SDK server-side ghi
+    }
+
+    // ===== COURSES & LESSONS =====
+    match /courses/{courseId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /lessons/{lessonId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // ===== USERS & PROGRESS =====
+    match /users/{userId} {
+      // Đọc profile của user (cần cho bảng xếp hạng / leaderboard)
+      allow read: if request.auth != null;
+      // Chỉ chính user đó mới được cập nhật profile
+      allow write: if request.auth != null && request.auth.uid == userId;
+
+      // Tiến trình học Spaced Repetition của user
+      match /progress/{docId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // FCM notification tokens
+      match /fcmTokens/{tokenId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Notification settings
+      match /notificationState/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // ===== LEADERBOARD =====
+    match /leaderboard/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

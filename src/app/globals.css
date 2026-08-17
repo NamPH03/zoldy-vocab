@@ -1,0 +1,450 @@
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=M+PLUS+Rounded+1c:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   DESIGN TOKENS — Light Mode (Sky Blue default)
+   ============================================================ */
+:root {
+  --primary:        #0284c7;
+  --primary-light:  #38bdf8;
+  --primary-dim:    #7dd3fc;
+  --primary-glow:   rgba(56,189,248,0.25);
+
+  --bg:             #f0f9ff;
+  --surface:        #ffffff;
+  --surface-2:      #e0f2fe;
+  --surface-3:      #bae6fd;
+
+  --border-color:   rgba(2,132,199,0.16);
+  --border-strong:  rgba(2,132,199,0.32);
+
+  --text:           #082f49;
+  --text-muted:     #0369a1;
+  --text-faint:     #64748b;
+
+  --shadow-sm:  0 1px 3px rgba(2,132,199,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:  0 4px 20px rgba(2,132,199,0.12), 0 2px 6px rgba(0,0,0,0.06);
+  --shadow-lg:  0 10px 40px rgba(2,132,199,0.16), 0 4px 12px rgba(0,0,0,0.08);
+
+  --nav-bg:     rgba(255,255,255,0.9);
+  --radius:     1rem;
+}
+
+/* ============================================================
+   DESIGN TOKENS — Dark Mode (Midnight Sky)
+   ============================================================ */
+.dark {
+  --primary:        #38bdf8;
+  --primary-light:  #7dd3fc;
+  --primary-dim:    #0284c7;
+  --primary-glow:   rgba(56,189,248,0.18);
+
+  --bg:             #08101e;
+  --surface:        #0f172a;
+  --surface-2:      #162036;
+  --surface-3:      #1e293b;
+
+  --border-color:   rgba(56,189,248,0.15);
+  --border-strong:  rgba(56,189,248,0.30);
+
+  --text:           #f0f9ff;
+  --text-muted:     #94a3b8;
+  --text-faint:     #64748b;
+
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-md:  0 4px 20px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.2);
+  --shadow-lg:  0 10px 40px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3);
+
+  --nav-bg:     rgba(15,23,42,0.9);
+}
+
+/* ============================================================
+   BASE STYLES
+   ============================================================ */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Khoá viewport — trang không tự cuộn nữa, chỉ #app-scroll bên trong mới cuộn */
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+
+  /* Fluid typography scaling dựa theo kích thước màn hình */
+  font-size: clamp(14px, 0.95vw + 10px, 19px);
+}
+
+/* Scaling trên màn 2K / 4K */
+@media (min-width: 1920px) {
+  html {
+    font-size: clamp(18px, 1.05vw + 2px, 24px);
+  }
+}
+@media (min-width: 2560px) {
+  html {
+    font-size: clamp(21px, 1.1vw, 28px);
+  }
+}
+
+body {
+  font-family: 'Quicksand', 'M PLUS Rounded 1c', sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  transition: background-color 0.3s ease, color 0.3s ease;
+  line-height: 1.6;
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  /* position: fixed phòng trường hợp trình duyệt (đặc biệt Safari iOS) vẫn
+     cố cuộn/rung (rubber-band) body dù đã overflow: hidden */
+  position: fixed;
+  inset: 0;
+  width: 100%;
+}
+
+/* ============================================================
+   APP SCROLL — vùng cuộn DUY NHẤT của toàn app, nằm giữa Navbar
+   (top, fixed) và Bottom Nav (mobile, fixed). Trang nào nội dung
+   ngắn (dashboard, flashcard, review...) sẽ không cuộn được gì cả.
+   Trang nào dài (bài học, sổ tay...) cuộn bình thường trong khu vực
+   này — không ảnh hưởng gì tới navbar/bottom-nav phía trên/dưới.
+   ============================================================ */
+#app-scroll {
+  height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  /* Bù khoảng trắng cho Fixed Navbar trên */
+  padding-top: 3.5rem;
+}
+
+@media (max-width: 767px) {
+  #app-scroll {
+    padding-bottom: calc(max(16px, env(safe-area-inset-bottom)) + 4.5rem);
+  }
+}
+
+/* Japanese text rendering */
+:lang(ja), .jp {
+  font-family: 'Noto Sans JP', sans-serif;
+  font-feature-settings: "palt" 1;
+}
+
+/* Phonetic / IPA text rendering — Segoe UI / Arial / System Sans for accurate phonetic symbols */
+.font-ipa, .ipa-text {
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Inter', Roboto, 'Arial', 'Lucida Sans Unicode', sans-serif !important;
+  letter-spacing: 0.02em;
+  font-weight: 500;
+}
+
+/* Selection color */
+::selection {
+  background-color: rgba(74,222,128,0.25);
+  color: var(--text);
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Smooth input colors */
+input, textarea, select {
+  color: var(--text) !important;
+  background-color: var(--surface);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-faint) !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary-dim); }
+
+/* ============================================================
+   COMPONENT LAYER
+   ============================================================ */
+@layer components {
+
+  /* === CARDS === */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.3s cubic-bezier(0.32,0.72,0,1),
+                transform   0.3s cubic-bezier(0.32,0.72,0,1);
+  }
+  .card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+  }
+
+  .card-inner {
+    background: var(--surface-2);
+    border: 1px solid var(--border-color);
+    border-radius: calc(var(--radius) - 2px);
+  }
+
+  /* === BUTTONS === */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    border-radius: 0.75rem;
+    padding: 0.625rem 1.25rem;
+    transition: all 0.2s cubic-bezier(0.32,0.72,0,1);
+    cursor: pointer;
+    border: none;
+    font-family: 'Quicksand', sans-serif;
+    letter-spacing: -0.01em;
+  }
+  .btn:active { transform: scale(0.97) translateY(1px); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+  .btn-primary {
+    background: var(--primary);
+    color: #ffffff;
+    box-shadow: 0 2px 8px var(--primary-glow);
+  }
+  .btn-primary:hover {
+    background: var(--primary-light);
+    color: #ffffff;
+    box-shadow: 0 4px 16px var(--primary-glow);
+    transform: translateY(-1px);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+  }
+  .btn-ghost:hover {
+    background: var(--surface-2);
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
+
+  .btn-danger {
+    background: #ef4444;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(239,68,68,0.2);
+  }
+  .btn-danger:hover {
+    background: #dc2626;
+    box-shadow: 0 4px 16px rgba(239,68,68,0.3);
+    transform: translateY(-1px);
+  }
+
+  /* === INPUTS === */
+  .input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    font-size: 0.9375rem;
+    color: var(--text);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    font-family: 'Quicksand', sans-serif;
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow);
+  }
+  .input::placeholder { color: var(--text-faint); }
+
+  /* === BADGE === */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.6rem;
+    border-radius: 99px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  /* === NAV === */
+  .navbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--nav-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.3s ease;
+  }
+
+  /* === SECTION === */
+  .page-container {
+    max-width: 52rem;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+  }
+
+  .page-container-wide {
+    max-width: 80rem;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+  }
+
+  @media (min-width: 1920px) {
+    .page-container {
+      max-width: 64rem;
+    }
+    .page-container-wide {
+      max-width: 96rem;
+    }
+  }
+
+  @media (min-width: 2560px) {
+    .page-container {
+      max-width: 76rem;
+    }
+    .page-container-wide {
+      max-width: 110rem;
+    }
+  }
+
+  /* === SR LEVEL COLORS === */
+  .sr-1 { background: rgba(239,68,68,0.1);  color: #ef4444; }
+  .sr-2 { background: rgba(249,115,22,0.1); color: #f97316; }
+  .sr-3 { background: rgba(234,179,8,0.1);  color: #eab308; }
+  .sr-4 { background: rgba(59,130,246,0.1); color: #3b82f6; }
+  .sr-5 { background: rgba(34,197,94,0.1);  color: #22c55e; }
+
+  /* === SKELETON LOADER === */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--surface-2) 25%,
+      var(--surface-3) 50%,
+      var(--surface-2) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 0.5rem;
+  }
+}
+
+/* ============================================================
+   UTILITY LAYER
+   ============================================================ */
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .text-pretty  { text-wrap: pretty; }
+
+  /* Staggered animation delays */
+  .delay-75  { animation-delay: 75ms; }
+  .delay-150 { animation-delay: 150ms; }
+  .delay-225 { animation-delay: 225ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-400 { animation-delay: 400ms; }
+  .delay-500 { animation-delay: 500ms; }
+
+  /* Glassmorphism */
+  .glass {
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+  .dark .glass {
+    background: rgba(20,28,23,0.6);
+    border: 1px solid rgba(74,222,128,0.1);
+  }
+
+  /* Surface utilities using CSS vars */
+  .bg-surface   { background-color: var(--surface); }
+  .bg-surface-2 { background-color: var(--surface-2); }
+  .bg-surface-3 { background-color: var(--surface-3); }
+  .bg-page      { background-color: var(--bg); }
+  .text-tx      { color: var(--text); }
+  .text-muted   { color: var(--text-muted); }
+  .text-faint   { color: var(--text-faint); }
+  .border-theme { border-color: var(--border-color); }
+
+  /* Number mono */
+  .tabular { font-variant-numeric: tabular-nums; font-family: 'JetBrains Mono', monospace; }
+}
+
+/* ============================================================
+   KEYFRAMES
+   ============================================================ */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ============================================================
+   FLASHCARD FLIP
+   ============================================================ */
+.flip-card { perspective: 1000px; }
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.55s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.flip-card-inner.flipped { transform: rotateY(180deg); }
+.flip-card-front,
+.flip-card-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flip-card-back { transform: rotateY(180deg); }
+
+.flip-card .card {
+  transition: none !important;
+  height: 100%;
+}
+
+.flip-card .card:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* ============================================================
+   NOISE OVERLAY (premium texture)
+   ============================================================ */
+.noise::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.4;
+}

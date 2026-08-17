@@ -1,0 +1,59 @@
+// src/components/ui/SpeakButton.tsx
+"use client";
+
+import { useState, useEffect } from "react";
+import { speakEnglish, isSpeechSupported, unlockSpeechSynthesis } from "@/lib/speech";
+
+type Props = {
+  text: string;
+  slow?: boolean;
+  size?: "sm" | "md" | "lg";
+  label?: string;
+};
+
+export default function SpeakButton({ text, slow = false, size = "md", label }: Props) {
+  const [supported, setSupported] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => { setSupported(isSpeechSupported()); }, []);
+  if (!supported) return null;
+
+  const sizeClass = {
+    sm: "w-8 h-8 text-sm",
+    md: "w-11 h-11 text-lg",
+    lg: "w-16 h-16 text-2xl",
+  }[size];
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setHasError(false);
+    unlockSpeechSynthesis();
+    speakEnglish(text, slow, {
+      onStart: () => setSpeaking(true),
+      onEnd: () => setSpeaking(false),
+      onError: () => {
+        setSpeaking(false);
+        setHasError(true);
+      },
+    });
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      className={`${sizeClass} rounded-full flex items-center justify-center transition-all duration-200 active:scale-90`}
+      style={
+        hasError
+          ? { background: "rgba(239, 68, 68, 0.15)", color: "#ef4444" }
+          : speaking
+          ? { background: "var(--primary-glow)", color: "var(--primary)", transform: "scale(1.1)" }
+          : { background: "var(--surface-2)", color: "var(--text-muted)" }
+      }
+      title={hasError ? "Lỗi phát âm trên trình duyệt" : (label || (slow ? "Phát âm chậm" : "Phát âm"))}
+      aria-label={label || (slow ? "Phát âm chậm" : "Phát âm từ này")}
+    >
+      {hasError ? "⚠️" : slow ? "🐢" : speaking ? "🔈" : "🔊"}
+    </button>
+  );
+}
