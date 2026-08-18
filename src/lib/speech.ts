@@ -1,7 +1,8 @@
 // src/lib/speech.ts
-// Web Speech API hỗ trợ đa ngôn ngữ với fix đặc biệt cho iOS Safari
+// Dual-Engine Audio: Phát âm bản xứ chất lượng cao (Native Audio) + Web Speech API fallback
 
 let iosUnlocked = false;
+let currentAudioInstance: HTMLAudioElement | null = null;
 
 export function isSpeechSupported(): boolean {
   return typeof window !== "undefined" && "speechSynthesis" in window;
@@ -15,27 +16,21 @@ export function unlockSpeechSynthesis(): void {
   iosUnlocked = true;
 }
 
-const LANG_CODE_MAP: Record<string, string> = {
-  ja: "ja-JP",
-  en: "en-US",
-  ko: "ko-KR",
-  zh: "zh-CN",
-};
-
-function getBestVoice(langCode: string): SpeechSynthesisVoice | null {
+function getBestEnglishVoice(): SpeechSynthesisVoice | null {
   if (!isSpeechSupported()) return null;
   const voices = window.speechSynthesis.getVoices();
+  // Ưu tiên các giọng tiếng Anh chất lượng cao tự nhiên
   return (
-    voices.find((v) => v.lang === langCode && v.localService) ||
-    voices.find((v) => v.lang === langCode) ||
-    voices.find((v) => v.lang.startsWith(langCode.split("-")[0])) ||
+    voices.find((v) => (v.lang === "en-US" || v.lang === "en-GB") && v.localService) ||
+    voices.find((v) => v.lang === "en-US") ||
+    voices.find((v) => v.lang === "en-GB") ||
+    voices.find((v) => v.lang.startsWith("en")) ||
     null
   );
 }
 
-export function speakText(
+export function speakEnglish(
   text: string,
-  lang: string = "en",
   slow = false,
   callbacks?: { onStart?: () => void; onEnd?: () => void; onError?: (e: SpeechSynthesisErrorEvent) => void }
 ): void {
@@ -46,10 +41,9 @@ export function speakText(
 
   window.speechSynthesis.cancel();
 
-  const langCode = LANG_CODE_MAP[lang] || "en-US";
   const utterance = new SpeechSynthesisUtterance(text.trim());
-  utterance.lang = langCode;
-  utterance.rate = slow ? 0.6 : 1.0;
+  utterance.lang = "en-US";
+  utterance.rate = slow ? 0.65 : 1.0;
   utterance.pitch = 1.0;
   utterance.volume = 1.0;
 
@@ -61,7 +55,7 @@ export function speakText(
     callbacks?.onEnd?.();
   };
 
-  const voice = getBestVoice(langCode);
+  const voice = getBestEnglishVoice();
   if (voice) utterance.voice = voice;
 
   setTimeout(() => {
@@ -69,15 +63,50 @@ export function speakText(
   }, 0);
 }
 
-export function speakEnglish(
+export function playAudioOrSpeak(
   text: string,
+  audioUrl?: string,
   slow = false,
-  callbacks?: { onStart?: () => void; onEnd?: () => void; onError?: (e: SpeechSynthesisErrorEvent) => void }
+  callbacks?: { onStart?: () => void; onEnd?: () => void; onError?: (e: any) => void }
 ): void {
-  speakText(text, "en", slow, callbacks);
+  stopSpeech();
+
+  if (audioUrl && typeof window !== "undefined") {
+    try {
+      const audio = new Audio(audioUrl);
+      currentAudioInstance = audio;
+      audio.playbackRate = slow ? 0.75 : 1.0;
+      
+      audio.onplay = () => callbacks?.onStart?.();
+      audio.onended = () => {
+        currentAudioInstance = null;
+        callbacks?.onEnd?.();
+      };
+      audio.onerror = (e) => {
+        currentAudioInstance = null;
+        speakEnglish(text, slow, callbacks);
+      };
+      
+      audio.play().catch(() => {
+        currentAudioInstance = null;
+        speakEnglish(text, slow, callbacks);
+      });
+      return;
+    } catch {
+      currentAudioInstance = null;
+    }
+  }
+
+  speakEnglish(text, slow, callbacks);
 }
 
 export function stopSpeech(): void {
+  if (currentAudioInstance) {
+    try {
+      currentAudioInstance.pause();
+      currentAudioInstance = null;
+    } catch {}
+  }
   if (isSpeechSupported()) {
     window.speechSynthesis.cancel();
   }

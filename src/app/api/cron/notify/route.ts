@@ -79,7 +79,7 @@ function getStudyReminderMessage(days: number): { title: string; body: string } 
 
   if (days >= 5)
     return {
-      title: `🚨 ${days} ngày chưa chạm vào Tiếng Nhật!`,
+      title: `🚨 ${days} ngày chưa chạm vào Tiếng Anh!`,
       body: 'Chỉ 1 bài học ngắn thôi cũng giúp bạn duy trì cảm giác ngôn ngữ.',
     };
 

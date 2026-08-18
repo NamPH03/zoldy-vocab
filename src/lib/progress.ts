@@ -66,7 +66,7 @@ function userStatsRef(userId: string) {
 }
 
 // Helper lấy danh sách progress docs (ưu tiên in-memory cache)
-async function fetchUserProgressDocs(userId: string): Promise<ProgressDoc[]> {
+export async function fetchUserProgressDocs(userId: string): Promise<ProgressDoc[]> {
   const cached = getProgressCache(userId);
   if (cached) return cached;
 

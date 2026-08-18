@@ -1,11 +1,11 @@
 {
-  "name": "Nihongo Master",
-  "short_name": "Nihongo",
-  "description": "Học tiếng Nhật mỗi ngày",
+  "name": "ZoldyVocab",
+  "short_name": "ZoldyVocab",
+  "description": "Nền tảng học & ghi nhớ từ vựng Tiếng Anh thông minh với Spaced Repetition",
   "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#0c1410",
-  "theme_color": "#22c55e",
+  "background_color": "#08101e",
+  "theme_color": "#0284c7",
   "icons": [
     {
       "src": "/icon-192.png",

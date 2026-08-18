@@ -6,7 +6,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { promoteWord, demoteWord, markStudiedToday, getDueWordsWithVocab } from "@/lib/progress";
 import { useRouter } from "next/navigation";
 import SpeakButton from "@/components/ui/SpeakButton";
-import { speakEnglish } from "@/lib/speech";
+import { playAudioOrSpeak, speakEnglish } from "@/lib/speech";
 import type { CachedVocabItem } from "@/lib/vocabCache";
 import { sfx } from "@/lib/sfx";
 import SessionCompletionModal from "@/components/ui/SessionCompletionModal";
@@ -15,7 +15,7 @@ import { Volume2, ArrowRight, CheckCircle2, RotateCw } from "lucide-react";
 // ===== TYPES =====
 type Vocabulary = {
   id: string; word: string; reading?: string; ipa?: string; type?: string; meaning: string; level: string;
-  example?: string; exampleMeaning?: string;
+  example?: string; exampleMeaning?: string; audioUrl?: string; imageUrl?: string;
 };
 type ReviewWord = CachedVocabItem & { wordId: string; srLevel: number; nextReview: string; reviewCount: number; };
 type ReviewStep = "meaning-to-word" | "word-to-meaning" | "type-spelling" | "listening";
@@ -153,11 +153,11 @@ export default function ReviewPage() {
   useEffect(() => {
     if (!currentWord) return;
     if (currentStep === "listening" && !isChecked) {
-      const t = setTimeout(() => speakEnglish(currentWord.word, false), 300);
+      const t = setTimeout(() => playAudioOrSpeak(currentWord.word, currentWord.audioUrl, false), 300);
       return () => clearTimeout(t);
     }
     if (isChecked) {
-      const t = setTimeout(() => speakEnglish(currentWord.word, false), 200);
+      const t = setTimeout(() => playAudioOrSpeak(currentWord.word, currentWord.audioUrl, false), 200);
       return () => clearTimeout(t);
     }
   }, [currentStep, currentWord?.wordId, isChecked]);
@@ -411,12 +411,12 @@ export default function ReviewPage() {
               {currentWord.word}
             </h3>
             {ipa && (
-              <div className="text-sm font-mono font-medium mb-3" style={{ color: "var(--primary)" }}>
+              <div className="text-sm font-ipa font-medium mb-3" style={{ color: "var(--primary)" }}>
                 {ipa.startsWith("/") ? ipa : `/${ipa}/`}
               </div>
             )}
             <div className="flex justify-center">
-              <SpeakButton text={currentWord.word} size="sm" />
+              <SpeakButton text={currentWord.word} audioUrl={currentWord.audioUrl} size="sm" />
             </div>
           </div>
         )}
@@ -424,7 +424,7 @@ export default function ReviewPage() {
         {/* Question Type: listening */}
         {currentStep === "listening" && (
           <div className="flex flex-col items-center gap-3 py-2">
-            <SpeakButton text={currentWord.word} size="lg" />
+            <SpeakButton text={currentWord.word} audioUrl={currentWord.audioUrl} size="lg" />
             <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
               Bấm để nghe phát âm từ vựng
             </p>
@@ -438,7 +438,7 @@ export default function ReviewPage() {
               {currentWord.meaning}
             </h3>
             {ipa && (
-              <div className="text-xs font-mono" style={{ color: "var(--primary)" }}>
+              <div className="text-xs font-ipa font-medium" style={{ color: "var(--primary)" }}>
                 Phiên âm: {ipa}
               </div>
             )}

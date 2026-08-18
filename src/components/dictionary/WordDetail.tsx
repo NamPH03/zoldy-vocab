@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import { db, auth } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import { speakEnglish } from "@/lib/speech";
+import { playAudioOrSpeak, speakEnglish } from "@/lib/speech";
 import type { DictionaryWord } from "@/types/dictionary";
 import { saveWordFromDictionary } from "@/lib/progress";
 import { getAllVocabulary } from "@/lib/vocabCache";
@@ -94,6 +94,7 @@ export default function WordDetail({ word }: Props) {
   const lvl = levelStyle[word.level || ""] || { bg: "var(--surface-2)", color: "var(--text-muted)" };
   const isLocal = word.source === "local";
   const ipaText = word.ipa || word.reading;
+  const audioUrl = (word as any).audioUrl || "";
 
   return (
     <div className="card p-5 rounded-2xl animate-fade-up flex flex-col gap-4 relative">
@@ -105,7 +106,7 @@ export default function WordDetail({ word }: Props) {
               {word.word}
             </span>
             {ipaText && (
-              <span className="text-base font-mono font-medium" style={{ color: "var(--primary)" }}>
+              <span className="text-base font-ipa font-medium" style={{ color: "var(--primary)" }}>
                 {ipaText.startsWith("/") ? ipaText : `/${ipaText}/`}
               </span>
             )}
@@ -135,7 +136,7 @@ export default function WordDetail({ word }: Props) {
       {/* Phát âm */}
       <div className="flex gap-2">
         <button
-          onClick={() => speakEnglish(word.word, false)}
+          onClick={() => playAudioOrSpeak(word.word, audioUrl, false)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-150 active:scale-95 hover:bg-[var(--surface-3)]"
           style={{ background: "var(--surface-2)", color: "var(--text)" }}
         >
@@ -143,7 +144,7 @@ export default function WordDetail({ word }: Props) {
           Phát âm giọng Mỹ (US)
         </button>
         <button
-          onClick={() => speakEnglish(word.word, true)}
+          onClick={() => playAudioOrSpeak(word.word, audioUrl, true)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-150 active:scale-95 hover:bg-[var(--surface-3)]"
           style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}
         >

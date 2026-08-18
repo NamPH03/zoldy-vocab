@@ -20,7 +20,7 @@ export function sendNotification(title: string, body: string) {
     body,
     icon: "/icon-192.png",
     badge: "/icon-192.png",
-    tag: "nihongo-master",
+    tag: "zoldy-vocab",
   });
 }
 
@@ -46,8 +46,8 @@ export function checkAndNotify(dueCount: number, streak: number, studiedToday: b
 
   // Test notification — luôn gửi dù không có từ cần ôn
   sendNotification(
-    "🌿 Nihongo Master",
-    "Hãy dành 5 phút ôn từ vựng tiếng Nhật hôm nay nhé!"
+    "⚡ ZoldyVocab",
+    "Hãy dành 5 phút ôn từ vựng tiếng Anh hôm nay nhé!"
   );
 }
 

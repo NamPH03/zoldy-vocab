@@ -2,21 +2,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { speakEnglish, isSpeechSupported, unlockSpeechSynthesis } from "@/lib/speech";
+import { playAudioOrSpeak, isSpeechSupported, unlockSpeechSynthesis } from "@/lib/speech";
 
 type Props = {
   text: string;
+  audioUrl?: string;
   slow?: boolean;
   size?: "sm" | "md" | "lg";
   label?: string;
 };
 
-export default function SpeakButton({ text, slow = false, size = "md", label }: Props) {
+export default function SpeakButton({ text, audioUrl, slow = false, size = "md", label }: Props) {
   const [supported, setSupported] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  useEffect(() => { setSupported(isSpeechSupported()); }, []);
+  useEffect(() => { setSupported(isSpeechSupported() || !!audioUrl); }, [audioUrl]);
   if (!supported) return null;
 
   const sizeClass = {
@@ -29,7 +30,7 @@ export default function SpeakButton({ text, slow = false, size = "md", label }: 
     e.stopPropagation();
     setHasError(false);
     unlockSpeechSynthesis();
-    speakEnglish(text, slow, {
+    playAudioOrSpeak(text, audioUrl, slow, {
       onStart: () => setSpeaking(true),
       onEnd: () => setSpeaking(false),
       onError: () => {

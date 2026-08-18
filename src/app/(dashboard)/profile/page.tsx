@@ -219,7 +219,7 @@ export default function ProfilePage() {
             Thông tin cá nhân
           </h1>
           <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>
-            Quản lý tài khoản Nihongo Master của bạn
+            Quản lý tài khoản ZoldyVocab của bạn
           </p>
         </div>
 

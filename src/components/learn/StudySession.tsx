@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { auth } from "@/lib/firebase";
 import { markNewWordLearned, updateProgress, masterWordDirectly } from "@/lib/progress";
-import { speakEnglish } from "@/lib/speech";
+import { playAudioOrSpeak, speakEnglish } from "@/lib/speech";
 import SpeakButton from "@/components/ui/SpeakButton";
 import Link from "next/link";
 import { sfx } from "@/lib/sfx";
@@ -19,6 +19,8 @@ type Vocabulary = {
   meaning: string;
   example?: string;
   exampleMeaning?: string;
+  audioUrl?: string;
+  imageUrl?: string;
   level: string;
   status?: string;
   courseId?: string;
@@ -106,7 +108,7 @@ export default function StudySession({
     if (sessionWords.length === 0) return;
     const current = sessionWords[currentIndex];
     if (current) {
-      const timer = window.setTimeout(() => speakEnglish(current.word, false), 400);
+      const timer = window.setTimeout(() => playAudioOrSpeak(current.word, current.audioUrl, false), 400);
       return () => window.clearTimeout(timer);
     }
   }, [currentIndex, sessionWords]);
@@ -175,7 +177,7 @@ export default function StudySession({
     setAnswerStatus("idle");
     setIsChecked(false);
     const nextWord = sessionWords[nextIndex];
-    setTimeout(() => speakEnglish(nextWord.word, false), 300);
+    setTimeout(() => playAudioOrSpeak(nextWord.word, nextWord.audioUrl, false), 300);
   };
 
   const nextStep = async () => {
@@ -187,7 +189,7 @@ export default function StudySession({
       setCurrentStep(next);
       prepareChoices(next, currentWord);
       setIsFlipped(false);
-      if (next === "listening") setTimeout(() => speakEnglish(currentWord.word, false), 300);
+      if (next === "listening") setTimeout(() => playAudioOrSpeak(currentWord.word, currentWord.audioUrl, false), 300);
     }
   };
 
@@ -498,7 +500,7 @@ export default function StudySession({
 
             {/* Audio Button */}
             <div className="w-full flex justify-between items-center pt-2">
-              <SpeakButton text={currentWord.word} size="md" />
+              <SpeakButton text={currentWord.word} audioUrl={currentWord.audioUrl} size="md" />
               <button
                 onClick={(e) => { e.stopPropagation(); handleSkipWord(); }}
                 className="text-xs font-bold px-3 py-1.5 rounded-xl transition-colors hover:bg-[var(--surface-2)]"
@@ -597,7 +599,7 @@ export default function StudySession({
               Nghe phát âm và chọn nghĩa đúng:
             </span>
 
-            <SpeakButton text={currentWord.word} size="lg" />
+            <SpeakButton text={currentWord.word} audioUrl={currentWord.audioUrl} size="lg" />
 
             <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
               Bấm loa để nghe lại

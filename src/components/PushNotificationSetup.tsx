@@ -39,13 +39,13 @@ export default function PushNotificationSetup() {
   }, []);
 
   // Lắng nghe thông báo khi app đang mở (foreground)
-  // Dùng Service Worker registration.showNotification() với cùng tag 'nihongo-master'
+  // Dùng Service Worker registration.showNotification() với cùng tag 'zoldy-vocab'
   // để browser tự deduplicate (không tạo 2 notification cùng lúc)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const unsubscribeForeground = listenForegroundMessages(async (payload) => {
-      const title = payload.data?.title || 'Nihongo Master';
+      const title = payload.data?.title || 'ZoldyVocab';
       const body = payload.data?.body || '';
       const link = payload.data?.url || '/dashboard';
 
@@ -71,7 +71,7 @@ export default function PushNotificationSetup() {
           body,
           icon: '/icon-192.png',
           badge: '/icon-192.png',
-          tag: 'nihongo-master',
+          tag: 'zoldy-vocab',
         });
       }
     });

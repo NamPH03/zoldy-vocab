@@ -20,6 +20,8 @@ export type CachedVocabItem = {
   language?: string;
   example?: string;
   exampleMeaning?: string;
+  audioUrl?: string;
+  imageUrl?: string;
   courseId?: string;
   lessonId?: string;
   lessonTitle?: string;

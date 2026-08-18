@@ -4,13 +4,14 @@
 // Sổ Tay — Hiển thị TỪ ĐÃ LƯU / ĐÃ HỌC của user theo mức ghi nhớ 1-5 (Spaced Repetition)
 
 import { useEffect, useState, useCallback } from "react";
-import { getDocs, collection } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/ui/Navbar";
-import { speakEnglish } from "@/lib/speech";
-import { getAllVocabulary } from "@/lib/vocabCache";
+import { playAudioOrSpeak, speakEnglish } from "@/lib/speech";
+import { getAllVocabulary, type CachedVocabItem } from "@/lib/vocabCache";
+import { fetchUserProgressDocs } from "@/lib/progress";
+import type { ProgressDoc } from "@/lib/progressCache";
 import { BookOpen, Volume2, Search, SlidersHorizontal } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────
@@ -24,6 +25,7 @@ type NoteWord = {
   srLevel: number;
   nextReview: string | null;
   status: "learned" | "new" | "mastered";
+  audioUrl?: string;
 };
 
 // ─── Màu sắc ─────────────────────────────────────────────────
@@ -85,33 +87,34 @@ export default function NotebookPage() {
   const loadUserNotebook = useCallback(async (uid: string) => {
     setLoading(true);
     try {
-      const [progressSnap, allVocab] = await Promise.all([
-        getDocs(collection(db, "users", uid, "progress")),
+      const [progressDocs, allVocab] = await Promise.all([
+        fetchUserProgressDocs(uid),
         getAllVocabulary("en"),
       ]);
 
-      const progressDocs = progressSnap.docs.filter((d) => d.id !== "stats");
+      const validProgressDocs = progressDocs.filter((d: ProgressDoc) => d.id !== "stats");
 
-      if (progressDocs.length === 0) {
+      if (validProgressDocs.length === 0) {
         setAllWords([]);
         setFiltered([]);
         setSrStats({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
         return;
       }
 
-      const vocabMap = new Map(allVocab.map((v) => [v.id, v]));
+      const vocabMap = new Map<string, CachedVocabItem>(
+        allVocab.map((v: CachedVocabItem) => [v.id, v])
+      );
 
       const wordDetails: NoteWord[] = [];
       const stats: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
       let mCount = 0;
 
-      for (const pd of progressDocs) {
-        const data = pd.data();
-        const wordId = data.wordId || pd.id;
+      for (const pd of validProgressDocs) {
+        const wordId = pd.wordId || pd.id;
         const vocab = vocabMap.get(wordId);
         if (vocab) {
-          const srLv = data.srLevel ?? 0;
-          const status = data.status || "new";
+          const srLv = pd.srLevel ?? 0;
+          const status = pd.status || "new";
           if (status === "mastered") {
             mCount++;
             wordDetails.push({
@@ -124,6 +127,7 @@ export default function NotebookPage() {
               srLevel: 5,
               nextReview: null,
               status: "mastered",
+              audioUrl: vocab.audioUrl || "",
             });
           } else if (srLv >= 1 && srLv <= 5) {
             stats[srLv] = (stats[srLv] || 0) + 1;
@@ -135,8 +139,9 @@ export default function NotebookPage() {
               level: vocab.level || "",
               type: vocab.type || "",
               srLevel: srLv,
-              nextReview: data.nextReview || null,
+              nextReview: pd.nextReview || null,
               status: status as "learned" | "new" | "mastered",
+              audioUrl: vocab.audioUrl || "",
             });
           }
         }
@@ -374,7 +379,7 @@ export default function NotebookPage() {
 
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
-                      onClick={() => speakEnglish(item.word, false)}
+                      onClick={() => playAudioOrSpeak(item.word, item.audioUrl, false)}
                       className="w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:bg-[var(--surface-2)] active:scale-95"
                       style={{ background: "var(--surface-2)", color: "var(--primary)" }}
                       title="Phát âm"

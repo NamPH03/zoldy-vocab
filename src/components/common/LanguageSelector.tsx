@@ -13,7 +13,7 @@ interface LanguageSelectorProps {
 
 export default function LanguageSelector({ compact = false }: LanguageSelectorProps) {
   const router = useRouter();
-  const [currentLang, setCurrentLang] = useState<LearningLanguage>("ja");
+  const [currentLang, setCurrentLang] = useState<LearningLanguage>("en");
   const [isOpen, setIsOpen] = useState(false);
   const user = getCurrentUser();
 
@@ -37,7 +37,7 @@ export default function LanguageSelector({ compact = false }: LanguageSelectorPr
     }
   };
 
-  const activeConfig = SUPPORTED_LANGUAGES[currentLang] || SUPPORTED_LANGUAGES.ja;
+  const activeConfig = SUPPORTED_LANGUAGES[currentLang] || SUPPORTED_LANGUAGES.en;
 
   return (
     <div className="relative inline-block text-left">
